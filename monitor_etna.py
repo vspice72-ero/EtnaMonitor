@@ -1,7 +1,6 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-import matplotlib.pyplot as plt
 from datetime import datetime
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -89,28 +88,22 @@ def scarica_immagine_da_pagina(url_pagina, keyword_filtro, nome_file_output):
     return None
 
 def gestisci_grafico_tremore():
-    url_tremore_ingv = "https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/tremore-vulcanico"
-    path_grafico = scarica_immagine_da_pagina(url_tremore_ingv, "tremor", "tremore_reale_ingv.png")
+    url_immagine_fissa = "https://www.ct.ingv.it/RMS_Etna/0.png"
+    nome_file = "tremore_reale_ingv.png"
+    headers = {"User-Agent": "Mozilla/5.0"}
     
-    if not path_grafico:
-        print("Immagine dinamica del tremore non trovata via web scraping, genero il grafico di trend...")
-        orari = ["00:00", "04:00", "08:00", "12:00"]
-        valori = [3.1, 3.4, 4.2, 3.8]
-        
-        plt.figure(figsize=(9, 4))
-        plt.plot(orari, valori, marker='o', color='crimson', linewidth=2.5, label="Ampiezza Tremore Volumetrico (U.A.)")
-        plt.title(f"Andamento Tremore Vulcanico Etna - {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC", fontsize=11, fontweight='bold')
-        plt.xlabel("Orario UTC")
-        plt.ylabel("U.A.")
-        plt.grid(True, linestyle='--', alpha=0.6)
-        plt.legend()
-        plt.tight_layout()
-        
-        path_grafico = "tremore_reale_ingv.png"
-        plt.savefig(path_grafico, dpi=150)
-        plt.close()
-        
-    return path_grafico
+    try:
+        response = requests.get(url_immagine_fissa, headers=headers, timeout=15)
+        if response.status_code == 200:
+            with open(nome_file, 'wb') as f:
+                f.write(response.content)
+            return nome_file
+        else:
+            print(f"Errore HTTP {response.status_code} nello scaricare l'immagine fissa del tremore.")
+    except Exception as e:
+        print(f"Errore di connessione nel download del grafico del tremore: {e}")
+    
+    return None
 
 if __name__ == "__main__":
     print("Avvio report periodico Etna & Sismicità...")
@@ -122,7 +115,7 @@ if __name__ == "__main__":
         intestazione = f"🚨 *ATTENZIONE: EVENTO SISMICO RILEVANTE RILEVATO!*\n" \
                        f"🌋 *Report Straordinario/Periodico Etna & INGV - {ora_attuale} UTC*\n\n"
     else:
-        intestazione = f"🌋 *Report Periodico Etna & INGV - {ora_attuale} UTC*\n\n"
+        intestazione = f"🌋 *Report Periodico Etna & INGV (RC2026) - {ora_attuale} UTC*\n\n"
     
     testo_report = (
         f"{intestazione}"
@@ -137,10 +130,14 @@ if __name__ == "__main__":
     )
     invia_messaggio_testo(testo_report)
     
+    # Download diretto e invio del grafico reale del tremore dall'URL fisso INGV
     path_grafico_reale = gestisci_grafico_tremore()
     if path_grafico_reale:
-        invia_foto_telegram(path_grafico_reale, "📈 *Grafico Tremore Vulcanico (INGV-OE / Trend)*")
+        invia_foto_telegram(path_grafico_reale, "📈 *Grafico Reale Tremore Vulcanico (INGV-OE)*")
+    else:
+        invia_messaggio_testo("📈 *Tremore Vulcanico:* Impossibile scaricare l'immagine dai server INGV al momento.")
         
+    # Estrazione e invio della mappa di dispersione ceneri
     url_ceneri_ingv = "https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/simulazione-dispersione-ceneri-vulcaniche"
     path_cenere_reale = scarica_immagine_da_pagina(url_ceneri_ingv, "ash", "ultima_cenere_reale.jpg")
     if not path_cenere_reale:
