@@ -30,7 +30,7 @@ def raccogli_dati_etna():
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
     
-    report = "🌋 *Report Monitoraggio Etna (INGV-OE)*\n\n"
+    report = "🌋 *Report Monitoraggio Etna (fonti varie)*\n\n"
     
     try:
         response = requests.get(url_ingv, headers=headers, timeout=15)
@@ -44,9 +44,9 @@ def raccogli_dati_etna():
             if "Aviation Color Code" in page_text:
                 idx = page_text.find("Aviation Color Code")
                 vona_snippet = page_text[idx:idx+180].strip().replace('\n', ' ')
-                report += f"✈️ *Ultimo VONA / Avviso Aviazione:*\n`{vona_snippet}`\n\n"
+                report += f"✈️ *Ultimo VONA da INGV-OE / Avviso Aviazione:*\n`{vona_snippet}`\n\n"
             else:
-                report += "✈️ *VONA:* Nessuna nuova allerta aviation in evidenza nella home.\n\n"
+                report += "✈️ *VONA da INGV-OE:* Nessuna nuova allerta aviation in evidenza nella home.\n\n"
                 
             # Sezione dedicata a ceneri e dispersione
             report += "💨 *Dispersione Ceneri e Modelli:*\n"
@@ -55,7 +55,7 @@ def raccogli_dati_etna():
                 
             report += "🔗 *Link Utili in Tempo Reale:*\n"
             report += "• [Portale Ufficiale INGV-OE](https://www.ct.ingv.it/)\n"
-            report += "• [Andamento Tremore Vulcanico (EtnaMonitor)](https://etnamonitor.it/tremore-etna)\n"
+            report += "• [Andamento Tremore Vulcanico (EtnaMonitor)](https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/tremore-vulcanico)\n"
         else:
             report += f"⚠️ Impossibile raggiungere il portale INGV (Codice HTTP: {response.status_code})\n"
             
