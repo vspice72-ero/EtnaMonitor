@@ -36,11 +36,10 @@ def invia_foto_telegram(foto_path, didascalia):
 def controlla_terremoti_vicini():
     lat_ct = 37.5027
     lon_ct = 15.0872
-    # Cerca eventi nel raggio di 250 km
     url_eq = f"https://webservices.ingv.it/fdsnws/event/1/query?format=json&maxradiuskm=250&lat={lat_ct}&lon={lon_ct}&limit=5&orderby=time"
     
     report_eq = "🌍 *Ultimi Terremoti (< 250 km da Catania):*\n"
-    c'e_evento_significativo = False
+    evento_significativo = False  # Corretto il nome della variabile senza apostrofo
     
     try:
         res = requests.get(url_eq, timeout=10)
@@ -57,9 +56,8 @@ def controlla_terremoti_vicini():
                     time_epoch = props.get('time') / 1000.0
                     time_str = datetime.utcfromtimestamp(time_epoch).strftime('%Y-%m-%d %H:%M')
                     
-                    # Soglia per definire un terremoto "significativo" (es. Magnitudo >= 3.0)
                     if mag and mag >= 3.0:
-                        c'e_evento_significativo = True
+                        evento_significativo = True
                         report_eq += f"• 🚨 *M {mag} (RILIEVO)* - {place} alle {time_str} UTC\n"
                     else:
                         report_eq += f"• *M {mag}* - {place} alle {time_str} UTC\n"
@@ -69,7 +67,7 @@ def controlla_terremoti_vicini():
     except Exception as e:
         report_eq += f"❌ Errore controllo sismico: {e}\n\n"
         
-    return report_eq, c'e_evento_significativo
+    return report_eq, evento_significativo
 
 def scarica_immagine_da_pagina(url_pagina, keyword_filtro, nome_file_output):
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -93,17 +91,14 @@ if __name__ == "__main__":
     print("Avvio report periodico Etna & Sismicità...")
     ora_attuale = datetime.utcnow().strftime('%d/%m/%Y %H:%M')
     
-    # Controllo sismico ed eventuale rilevamento di eventi significativi (es. M >= 3.0)
     report_sismi, evento_rilevante = controlla_terremoti_vicini()
     
-    # Intestazione dinamica in base alla presenza di eventi rilevanti
     if evento_rilevante:
         intestazione = f"🚨 *ATTENZIONE: EVENTO SISMICO RILEVANTE RILEVATO!*\n" \
                        f"🌋 *Report Straordinario/Periodico Etna & INGV - {ora_attuale} UTC*\n\n"
     else:
-        intestazione = f"🌋 *Report Periodico Etna & INGV - {ora_attuale} UTC*\n\n"
+        intestazione = f"🌋 *Report Periodico Etna & INGV (by Rosario Catania)- {ora_attuale} UTC*\n\n"
     
-    # 1. Invio del testo descrittivo con l'eventuale alert incorporato
     testo_report = (
         f"{intestazione}"
         "✈️ *VONA:* Nessuna nuova allerta aviation in evidenza nella home.\n\n"
@@ -117,13 +112,11 @@ if __name__ == "__main__":
     )
     invia_messaggio_testo(testo_report)
     
-    # 2. Estrazione e invio del grafico del tremore vulcanico
     url_tremore_ingv = "https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/tremore-vulcanico"
     path_grafico_reale = scarica_immagine_da_pagina(url_tremore_ingv, " tremor", "tremore_reale_ingv.png")
     if path_grafico_reale:
         invia_foto_telegram(path_grafico_reale, "📈 *Grafico Reale Tremore Vulcanico (INGV-OE)*")
         
-    # 3. Estrazione e invio della mappa di dispersione ceneri
     url_ceneri_ingv = "https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/simulazione-dispersione-ceneri-vulcaniche"
     path_cenere_reale = scarica_immagine_da_pagina(url_ceneri_ingv, "ash", "ultima_cenere_reale.jpg")
     if not path_cenere_reale:
