@@ -55,7 +55,7 @@ def raccogli_dati_etna():
                 
             report += "🔗 *Link Utili in Tempo Reale:*\n"
             report += "• [Portale Ufficiale INGV-OE](https://www.ct.ingv.it/)\n"
-            report += "• [Andamento Tremore Vulcanico (EtnaMonitor)](https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/tremore-vulcanico)\n"
+            report += "• [Andamento Tremore Vulcanico (INGV-OE)](https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/tremore-vulcanico)\n"
         else:
             report += f"⚠️ Impossibile raggiungere il portale INGV (Codice HTTP: {response.status_code})\n"
             
