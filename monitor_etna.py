@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
-def invia_messaggio_testo(testo):
+def invia_messaggio_testo(testo, aggiungi_bottone=False):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
@@ -14,6 +14,15 @@ def invia_messaggio_testo(testo):
         "parse_mode": "Markdown",
         "disable_web_page_preview": True
     }
+    
+    # Se richiesto, aggiunge la tastiera inline con il pulsante di aggiornamento
+    if aggiungi_bottone:
+        payload["reply_markup"] = {
+            "inline_keyboard": [
+                [{"text": "🔄 Aggiorna Ora", "callback_data": "forza_aggiornamento"}]
+            ]
+        }
+        
     try:
         requests.post(url, json=payload, timeout=15)
     except Exception as e:
@@ -54,14 +63,13 @@ def controlla_terremoti_vicini():
         headers = {"User-Agent": "Mozilla/5.0"}
         res = requests.get(url_eq, headers=headers, timeout=10)
         
-        # Verifica che la risposta sia 200 e contenga effettivamente dati JSON validi
         if res.status_code == 200 and 'application/json' in res.headers.get('content-type', ''):
             data = res.json()
             features = data.get('features', [])
             if not features:
                 report_eq += "• Nessun evento sismico rilevante registrato nelle ultime 24h.\n\n"
             else:
-                for f in features[:5]: # Mostra fino ai 5 eventi più recenti
+                for f in features[:5]:
                     props = f['properties']
                     mag = props.get('mag', 0.0)
                     place = props.get('place', 'Area di Sicilia / Calabria')
@@ -141,7 +149,9 @@ if __name__ == "__main__":
         "• [Portale Ufficiale INGV-OE](https://www.ct.ingv.it/)\n"
         "• [Andamento Tremore Vulcanico (INGV-OE)](https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/tremore-vulcanico)"
     )
-    invia_messaggio_testo(testo_report)
+    
+    # Invio del report testuale con il bottone interattivo abilitato
+    invia_messaggio_testo(testo_report, aggiungi_bottone=True)
     
     # Download diretto del grafico reale del tremore dall'URL fisso INGV
     path_grafico_reale = gestisci_grafico_tremore()
@@ -158,3 +168,4 @@ if __name__ == "__main__":
         
     if path_cenere_reale:
         invia_foto_telegram(path_cenere_reale, "💨 *Ultima Mappa Reale - Dispersione Ceneri Vulcaniche*")
+        
