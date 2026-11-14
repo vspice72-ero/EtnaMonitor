@@ -1,6 +1,6 @@
 import os
 import requests
-from bs4 import BeautifulSoup
+from bs4نهار import BeautifulSoup
 from datetime import datetime, timedelta
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -15,7 +15,6 @@ def invia_messaggio_testo(testo, aggiungi_bottone=False):
         "disable_web_page_preview": True
     }
     
-    # Se richiesto, aggiunge la tastiera inline con il pulsante di aggiornamento
     if aggiungi_bottone:
         payload["reply_markup"] = {
             "inline_keyboard": [
@@ -42,11 +41,33 @@ def invia_foto_telegram(foto_path, didascalia):
         except Exception as e:
             print(f"Errore invio foto: {e}")
 
+def controlla_vona_reali():
+    """Esegue il parsing della pagina VONA INGV per estrarre l'ultimo avviso."""
+    url_vona = "https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/comunicati-vona"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        res = requests.get(url_vona, headers=headers, timeout=10)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, 'html.parser')
+            # Cerca la tabella o i link dei comunicati VONA
+            righe = soup.find_all('tr')
+            for riga in righe[1:5]: # Controlla le prime righe della tabella
+                colonne = riga.find_all('td')
+                if len(colonne) >= 2:
+                    testo_riga = riga.get_text(strip=True)
+                    if "VONA" in testo_riga or "Etna" in testo_riga:
+                        link_tag = riga.find('a')
+                        link_vona = "https://www.ct.ingv.it" + link_tag['href'] if link_tag and link_tag.has_attr('href') else url_vona
+                        return f"✈️ *Ultimo VONA Rilevato:*\n• [{testo_riga}]({link_vona})\n\n"
+        return "✈️ *VONA:* Nessun nuovo avviso critico recente in evidenza.\n\n"
+    except Exception as e:
+        print(f"Errore controllo VONA: {e}")
+        return "✈️ *VONA:* Impossibile verificare lo stato VONA al momento.\n\n"
+
 def controlla_terremoti_vicini():
     lat_ct = 37.5027
     lon_ct = 15.0872
     
-    # Finestra temporale delle ultime 24 ore per evitare query aperte o vuote
     endtime = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
     starttime = (datetime.utcnow() - timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%S')
     
@@ -69,21 +90,27 @@ def controlla_terremoti_vicini():
             if not features:
                 report_eq += "• Nessun evento sismico rilevante registrato nelle ultime 24h.\n\n"
             else:
-                for f in features[:5]:
+                count = 0
+                for f in features:
                     props = f['properties']
-                    mag = props.get('mag', 0.0)
+                    mag_raw = props.get('mag')
+                    if mag_raw is None:
+                        continue
+                    mag = float(mag_raw)
                     place = props.get('place', 'Area di Sicilia / Calabria')
                     time_epoch = props.get('time') / 1000.0
                     time_str = datetime.utcfromtimestamp(time_epoch).strftime('%Y-%m-%d %H:%M')
                     
-                    if mag and mag >= 2.0:
+                    if mag >= 2.0:
                         evento_significativo = True
-                        report_eq += f"• 🚨 *M {mag} (RILIEVO)* - {place} alle {time_str} UTC\n"
-                    else:
-                        report_eq += f"• *M {mag}* - {place} alle {time_str} UTC\n"
+                        report_eq += f"• 🚨 *M {mag:.1f} (RILIEVO)* - {place} alle {time_str} UTC\n"
+                        count += 1
+                    elif count < 3: # Mostra anche qualche evento minore se non ci sono >=2.0
+                        report_eq += f"• *M {mag:.1f}* - {place} alle {time_str} UTC\n"
+                        count += 1
                 report_eq += "\n"
         else:
-            report_eq += "• Nessun evento sismico recente o servizio temporaneamente occupato.\n\n"
+            report_eq += "• Servizio terremoti temporaneamente occupato.\n\n"
     except Exception as e:
         print(f"Errore parsing terremoti: {e}")
         report_eq += "• Nessun evento sismico rilevato in questo intervallo.\n\n"
@@ -96,14 +123,20 @@ def scarica_immagine_da_pagina(url_pagina, keyword_filtro, nome_file_output):
         response = requests.get(url_pagina, headers=headers, timeout=15)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
+            immagini_trovate = []
             for img in soup.find_all('img'):
                 src = img.get('src', '')
                 if keyword_filtro in src.lower():
                     img_url = src if src.startswith('http') else "https://www.ct.ingv.it" + src
-                    img_data = requests.get(img_url, timeout=15).content
-                    with open(nome_file_output, 'wb') as f:
-                        f.write(img_data)
-                    return nome_file_output
+                    immagini_trovate.append(img_url)
+            
+            # Se trova immagini, prende l'ultima in ordine cronologico sulla pagina
+            if immagini_trovate:
+                ultima_img_url = immagini_trovate[-1]
+                img_data = requests.get(ultima_img_url, timeout=15).content
+                with open(nome_file_output, 'wb') as f:
+                    f.write(img_data)
+                return nome_file_output
     except Exception as e:
         print(f"Errore recupero immagine con filtro '{keyword_filtro}': {e}")
     return None
@@ -119,28 +152,26 @@ def gestisci_grafico_tremore():
             with open(nome_file, 'wb') as f:
                 f.write(response.content)
             return nome_file
-        else:
-            print(f"Errore HTTP {response.status_code} nello scaricare l'immagine fissa del tremore.")
     except Exception as e:
-        print(f"Errore di connessione nel download del grafico del tremore: {e}")
-    
+        print(f"Errore download grafico tremore: {e}")
     return None
 
 if __name__ == "__main__":
     print("Avvio report periodico Etna & Sismicità...")
     ora_attuale = datetime.utcnow().strftime('%d/%m/%Y %H:%M')
     
+    report_vona = controlla_vona_reali()
     report_sismi, evento_rilevante = controlla_terremoti_vicini()
     
     if evento_rilevante:
-        intestazione = f"🚨 *ATTENZIONE: EVENTO SISMICO RILEVANTE RILEVATO!*\n" \
-                       f"🌋 *Report Straordinario/Periodico Etna & INGV - {ora_attuale} UTC*\n\n"
+        intestazione = f"🚨 *ATTENZIONE: EVENTO SISMICO RILEVANTE (M >= 2.0) RILEVATO!*\n" \
+                       f"🌋 *Report Straordinario Etna & INGV - {ora_attuale} UTC*\n\n"
     else:
         intestazione = f"🌋 *Report Periodico Etna & INGV - {ora_attuale} UTC*\n\n"
     
     testo_report = (
         f"{intestazione}"
-        "✈️ *VONA:* Nessuna nuova allerta aviation in evidenza nella home.\n\n"
+        f"{report_vona}"
         f"{report_sismi}"
         "💨 *Dispersione Ceneri e Modelli:*\n"
         "• [Simulazione Dispersione Ceneri INGV](https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/simulazione-dispersione-ceneri-vulcaniche)\n"
@@ -150,22 +181,20 @@ if __name__ == "__main__":
         "• [Andamento Tremore Vulcanico (INGV-OE)](https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/tremore-vulcanico)"
     )
     
-    # Invio del report testuale con il bottone interattivo abilitato
     invia_messaggio_testo(testo_report, aggiungi_bottone=True)
     
-    # Download diretto del grafico reale del tremore dall'URL fisso INGV
+    # Invio grafico tremore
     path_grafico_reale = gestisci_grafico_tremore()
     if path_grafico_reale:
         invia_foto_telegram(path_grafico_reale, "📈 *Grafico Reale Tremore Vulcanico (INGV-OE)*")
-    else:
-        invia_messaggio_testo("📈 *Tremore Vulcanico:* Impossibile scaricare l'immagine dai server INGV al momento.")
-        
-    # Estrazione e invio della mappa di dispersione ceneri
+    
+    # Estrazione e invio dell'ultima mappa di dispersione ceneri in ordine cronologico
     url_ceneri_ingv = "https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/simulazione-dispersione-ceneri-vulcaniche"
     path_cenere_reale = scarica_immagine_da_pagina(url_ceneri_ingv, "ash", "ultima_cenere_reale.jpg")
     if not path_cenere_reale:
-        path_cenere_reale = scarica_immagine_da_pagina("https://www.ct.ingv.it/", "ceneri", "ultima_cenere_reale.jpg")
+        path_cenere_reale = scarica_immagine_da_pagina(url_ceneri_ingv, "ceneri", "ultima_cenere_reale.jpg")
         
     if path_cenere_reale:
         invia_foto_telegram(path_cenere_reale, "💨 *Ultima Mappa Reale - Dispersione Ceneri Vulcaniche*")
-        
+    else:
+        invia_messaggio_testo("💨 *Dispersione Ceneri:* Impossibile recuperare l'ultima mappa dinamica dai server INGV al momento.")
