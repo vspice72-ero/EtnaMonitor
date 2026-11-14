@@ -185,4 +185,12 @@ if __name__ == "__main__":
     if path_grafico_reale:
         invia_foto_telegram(path_grafico_reale, "📈 *Grafico Reale Tremore Vulcanico (INGV-OE)*")
     
-    url_ceneri_ingv = "
+    url_ceneri_ingv = "https://www.ct.ingv.it/index.php/monitoraggio-e-sorveglianza/segnali-in-tempo-reale/simulazione-dispersione-ceneri-vulcaniche"
+    path_cenere_reale = scarica_immagine_da_pagina(url_ceneri_ingv, "ash", "ultima_cenere_reale.jpg")
+    if not path_cenere_reale:
+        path_cenere_reale = scarica_immagine_da_pagina(url_ceneri_ingv, "ceneri", "ultima_cenere_reale.jpg")
+        
+    if path_cenere_reale:
+        invia_foto_telegram(path_cenere_reale, "💨 *Ultima Mappa Reale - Dispersione Ceneri Vulcaniche*")
+    else:
+        invia_messaggio_testo("💨 *Dispersione Ceneri:* Impossibile recuperare l'ultima mappa dinamica dai server INGV al momento.")
