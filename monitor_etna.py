@@ -76,7 +76,7 @@ def controlla_terremoti_vicini():
                     time_epoch = props.get('time') / 1000.0
                     time_str = datetime.utcfromtimestamp(time_epoch).strftime('%Y-%m-%d %H:%M')
                     
-                    if mag and mag >= 3.0:
+                    if mag and mag >= 2.0:
                         evento_significativo = True
                         report_eq += f"• 🚨 *M {mag} (RILIEVO)* - {place} alle {time_str} UTC\n"
                     else:
